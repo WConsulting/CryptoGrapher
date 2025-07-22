@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Portfolio Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.2/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(102, 126, 234, 0.5);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: bold;
+        }
+
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            height: 400px;
+        }
+
+        .portfolio-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(10px);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #ddd;
+        }
+
+        .add-transaction {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.875rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        input, select, button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .holdings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .holdings-table th,
+        .holdings-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .holdings-table th {
+            font-weight: 600;
+            color: #888;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+
+        .crypto-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .remove-btn {
+            background: #ef4444;
+            padding: 5px 10px;
+            font-size: 0.875rem;
+        }
+
+        .time-filter {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+
+        .export-import {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .add-transaction {
+                grid-template-columns: 1fr;
+            }
+            
+            .holdings-table {
+                font-size: 0.875rem;
+            }
+            
+            .stat-card {
+                padding: 15px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Crypto Portfolio Tracker</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Portfolio Value</div>
+                <div class="stat-value" id="totalValue">$0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">24h Change</div>
+                <div class="stat-value" id="dayChange">$0.00 (0%)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total P/L</div>
+                <div class="stat-value" id="totalPL">$0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Invested</div>
+                <div class="stat-value" id="totalInvested">$0.00</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="portfolioChart"></canvas>
+        </div>
+
+        <div class="time-filter">
+            <div class="filter-btn" data-period="1D">1D</div>
+            <div class="filter-btn" data-period="1W">1W</div>
+            <div class="filter-btn active" data-period="1M">1M</div>
+            <div class="filter-btn" data-period="3M">3M</div>
+            <div class="filter-btn" data-period="1Y">1Y</div>
+            <div class="filter-btn" data-period="ALL">ALL</div>
+        </div>
+
+        <div class="portfolio-section">
+            <h2 class="section-title">Add Transaction</h2>
+            <div class="add-transaction">
+                <div class="form-group">
+                    <label>Cryptocurrency</label>
+                    <select id="cryptoSelect">
+                        <option value="">Select crypto...</option>
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="ethereum-classic">Ethereum Classic (ETC)</option>
+                        <option value="binancecoin">Binance Coin (BNB)</option>
+                        <option value="ripple">XRP</option>
+                        <option value="solana">Solana (SOL)</option>
+                        <option value="cardano">Cardano (ADA)</option>
+                        <option value="dogecoin">Dogecoin (DOGE)</option>
+                        <option value="ravencoin">Ravencoin (RVN)</option>
+                        <option value="polkadot">Polkadot (DOT)</option>
+                        <option value="polygon">Polygon (MATIC)</option>
+                        <option value="avalanche">Avalanche (AVAX)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="quantity" placeholder="0.00" step="any">
+                </div>
+                <div class="form-group">
+                    <label>Price per Coin</label>
+                    <input type="number" id="pricePerCoin" placeholder="0.00" step="any">
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="transactionDate">
+                </div>
+                <button onclick="addTransaction()">Add Transaction</button>
+            </div>
+        </div>
+
+        <div class="portfolio-section">
+            <h2 class="section-title">Current Holdings</h2>
+            <div class="export-import">
+                <button onclick="exportData()">Export Data</button>
+                <button onclick="document.getElementById('importFile').click()">Import Data</button>
+                <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+            </div>
+            <table class="holdings-table">
+                <thead>
+                    <tr>
+                        <th>Coin</th>
+                        <th>Holdings</th>
+                        <th>Avg Buy Price</th>
+                        <th>Current Price</th>
+                        <th>Value</th>
+                        <th>P/L</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="holdingsTableBody">
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: #888;">No holdings yet</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Portfolio data structure
+        let portfolio = {
+            holdings: {},
+            transactions: [],
+            historicalData: {}
+        };
+
+        // Chart instance
+        let portfolioChart = null;
+
+        // Crypto symbols mapping
+        const cryptoSymbols = {
+            bitcoin: 'BTC',
+            ethereum: 'ETH',
+            'ethereum-classic': 'ETC',
+            binancecoin: 'BNB',
+            ripple: 'XRP',
+            solana: 'SOL',
+            cardano: 'ADA',
+            dogecoin: 'DOGE',
+            ravencoin: 'RVN',
+            polkadot: 'DOT',
+            polygon: 'MATIC',
+            avalanche: 'AVAX'
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPortfolio();
+            initializeChart();
+            updatePortfolio();
+            setInterval(updatePortfolio, 60000); // Update every minute
+            
+            // Set today's date as default
+            document.getElementById('transactionDate').valueAsDate = new Date();
+            
+            // Time filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateChart(btn.dataset.period);
+                });
+            });
+        });
+
+        // Load portfolio from localStorage
+        function loadPortfolio() {
+            const saved = localStorage.getItem('cryptoPortfolio');
+            if (saved) {
+                portfolio = JSON.parse(saved);
+            }
+        }
+
+        // Save portfolio to localStorage
+        function savePortfolio() {
+            localStorage.setItem('cryptoPortfolio', JSON.stringify(portfolio));
+        }
+
+        // Add transaction
+        function addTransaction() {
+            const crypto = document.getElementById('cryptoSelect').value;
+            const quantity = parseFloat(document.getElementById('quantity').value);
+            const pricePerCoin = parseFloat(document.getElementById('pricePerCoin').value);
+            const date = document.getElementById('transactionDate').value;
+
+            if (!crypto || !quantity || !pricePerCoin || !date) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            const transaction = {
+                id: Date.now(),
+                crypto,
+                quantity,
+                pricePerCoin,
+                date,
+                timestamp: new Date(date).getTime()
+            };
+
+            portfolio.transactions.push(transaction);
+
+            // Update holdings
+            if (!portfolio.holdings[crypto]) {
+                portfolio.holdings[crypto] = {
+                    quantity: 0,
+                    totalCost: 0,
+                    transactions: []
+                };
+            }
+
+            portfolio.holdings[crypto].quantity += quantity;
+            portfolio.holdings[crypto].totalCost += quantity * pricePerCoin;
+            portfolio.holdings[crypto].transactions.push(transaction.id);
+
+            savePortfolio();
+            updatePortfolio();
+
+            // Clear form
+            document.getElementById('cryptoSelect').value = '';
+            document.getElementById('quantity').value = '';
+            document.getElementById('pricePerCoin').value = '';
+            document.getElementById('transactionDate').valueAsDate = new Date();
+        }
+
+        // Remove coin from portfolio
+        function removeCoin(crypto) {
+            if (confirm(`Remove all ${cryptoSymbols[crypto]} from portfolio?`)) {
+                // Remove all transactions for this crypto
+                portfolio.transactions = portfolio.transactions.filter(t => t.crypto !== crypto);
+                delete portfolio.holdings[crypto];
+                savePortfolio();
+                updatePortfolio();
+            }
+        }
+
+        // Fetch current prices
+        async function fetchPrices() {
+            const cryptos = Object.keys(portfolio.holdings);
+            if (cryptos.length === 0) return {};
+
+            try {
+                const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${cryptos.join(',')}&vs_currencies=usd&include_24hr_change=true`);
+                return response.data;
+            } catch (error) {
+                console.error('Error fetching prices:', error);
+                return {};
+            }
+        }
+
+        // Update portfolio display
+        async function updatePortfolio() {
+            const prices = await fetchPrices();
+            
+            let totalValue = 0;
+            let totalInvested = 0;
+            let totalDayChange = 0;
+            let holdingsHTML = '';
+
+            for (const [crypto, holding] of Object.entries(portfolio.holdings)) {
+                const currentPrice = prices[crypto]?.usd || 0;
+                const dayChange = prices[crypto]?.usd_24h_change || 0;
+                const value = holding.quantity * currentPrice;
+                const avgPrice = holding.totalCost / holding.quantity;
+                const pl = value - holding.totalCost;
+                const plPercent = ((value - holding.totalCost) / holding.totalCost * 100).toFixed(2);
+
+                totalValue += value;
+                totalInvested += holding.totalCost;
+                totalDayChange += value * (dayChange / 100);
+
+                holdingsHTML += `
+                    <tr>
+                        <td>
+                            <strong>${cryptoSymbols[crypto]}</strong>
+                        </td>
+                        <td>${holding.quantity.toFixed(4)}</td>
+                        <td>$${avgPrice.toFixed(2)}</td>
+                        <td>$${currentPrice.toFixed(2)}</td>
+                        <td>$${value.toFixed(2)}</td>
+                        <td class="${pl >= 0 ? 'positive' : 'negative'}">
+                            $${pl.toFixed(2)} (${plPercent}%)
+                        </td>
+                        <td>
+                            <button class="remove-btn" onclick="removeCoin('${crypto}')">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            if (holdingsHTML === '') {
+                holdingsHTML = '<tr><td colspan="7" style="text-align: center; color: #888;">No holdings yet</td></tr>';
+            }
+
+            document.getElementById('holdingsTableBody').innerHTML = holdingsHTML;
+            document.getElementById('totalValue').textContent = `$${totalValue.toFixed(2)}`;
+            document.getElementById('totalInvested').textContent = `$${totalInvested.toFixed(2)}`;
+            
+            const totalPL = totalValue - totalInvested;
+            const totalPLPercent = totalInvested > 0 ? ((totalPL / totalInvested) * 100).toFixed(2) : 0;
+            document.getElementById('totalPL').textContent = `$${totalPL.toFixed(2)}`;
+            document.getElementById('totalPL').className = `stat-value ${totalPL >= 0 ? 'positive' : 'negative'}`;
+            
+            const dayChangePercent = totalValue > 0 ? (totalDayChange / (totalValue - totalDayChange) * 100).toFixed(2) : 0;
+            document.getElementById('dayChange').textContent = `$${totalDayChange.toFixed(2)} (${dayChangePercent}%)`;
+            document.getElementById('dayChange').className = `stat-value ${totalDayChange >= 0 ? 'positive' : 'negative'}`;
+
+            // Store current data point for chart
+            const now = new Date();
+            const dateKey = now.toISOString().split('T')[0];
+            if (!portfolio.historicalData[dateKey]) {
+                portfolio.historicalData[dateKey] = [];
+            }
+            portfolio.historicalData[dateKey].push({
+                time: now.getTime(),
+                value: totalValue
+            });
+            savePortfolio();
+
+            updateChart('1M');
+        }
+
+        // Initialize chart
+        function initializeChart() {
+            const ctx = document.getElementById('portfolioChart').getContext('2d');
+            portfolioChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Portfolio Value',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: '#667eea',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Value: $${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#888',
+                                maxTicksLimit: 6
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#888',
+                                callback: function(value) {
+                                    return '$' + value.toFixed(0);
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        // Update chart with time period
+        function updateChart(period) {
+            const now = Date.now();
+            let startTime;
+            
+            switch(period) {
+                case '1D': startTime = now - 24 * 60 * 60 * 1000; break;
+                case '1W': startTime = now - 7 * 24 * 60 * 60 * 1000; break;
+                case '1M': startTime = now - 30 * 24 * 60 * 60 * 1000; break;
+                case '3M': startTime = now - 90 * 24 * 60 * 60 * 1000; break;
+                case '1Y': startTime = now - 365 * 24 * 60 * 60 * 1000; break;
+                case 'ALL': startTime = 0; break;
+            }
+
+            const chartData = [];
+            const labels = [];
+
+            // Generate data points from transactions and historical data
+            for (const transaction of portfolio.transactions) {
+                if (transaction.timestamp >= startTime) {
+                    // Calculate portfolio value at transaction time
+                    let value = 0;
+                    for (const [crypto, holding] of Object.entries(portfolio.holdings)) {
+                        const relevantTransactions = portfolio.transactions.filter(
+                            t => t.crypto === crypto && t.timestamp <= transaction.timestamp
+                        );
+                        const quantity = relevantTransactions.reduce((sum, t) => sum + t.quantity, 0);
+                        // Use transaction price as approximation
+                        value += quantity * transaction.pricePerCoin;
+                    }
+                    chartData.push(value);
+                    labels.push(new Date(transaction.timestamp).toLocaleDateString());
+                }
+            }
+
+            // Add current value
+            const currentValue = parseFloat(document.getElementById('totalValue').textContent.replace('$', ''));
+            chartData.push(currentValue);
+            labels.push('Now');
+
+            // Update chart
+            portfolioChart.data.labels = labels;
+            portfolioChart.data.datasets[0].data = chartData;
+            portfolioChart.update();
+        }
+
+        // Export data
+        function exportData() {
+            const dataStr = JSON.stringify(portfolio, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `crypto-portfolio-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Import data
+        function importData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (confirm('This will replace your current portfolio. Continue?')) {
+                            portfolio = importedData;
+                            savePortfolio();
+                            updatePortfolio();
+                            alert('Portfolio imported successfully!');
+                        }
+                    } catch (error) {
+                        alert('Error importing file. Please ensure it\'s a valid portfolio export.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+    </script>
+</body>
+</html>
