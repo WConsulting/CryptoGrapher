@@ -321,6 +321,7 @@
                 <button onclick="exportData()">Export Data</button>
                 <button onclick="document.getElementById('importFile').click()">Import Data</button>
                 <input type="file" id="importFile" style="display: none;" accept=".json" onchange="importData(event)">
+                <button onclick="createPermanentLink()">Create Permanent Link</button>
             </div>
             <table class="holdings-table">
                 <thead>
@@ -353,6 +354,50 @@
 
         // Chart instance
         let portfolioChart = null;
+
+        // URL Storage Class
+        class URLStorage {
+            static compress(data) {
+                try {
+                    const jsonString = JSON.stringify(data);
+                    // Use base64 encoding for compatibility
+                    return btoa(encodeURIComponent(jsonString));
+                } catch (error) {
+                    console.error('Compression error:', error);
+                    return null;
+                }
+            }
+            
+            static decompress(encoded) {
+                try {
+                    const jsonString = decodeURIComponent(atob(encoded));
+                    return JSON.parse(jsonString);
+                } catch (error) {
+                    console.error('Decompression error:', error);
+                    return null;
+                }
+            }
+            
+            static saveToURL(portfolio) {
+                const compressed = this.compress(portfolio);
+                if (compressed) {
+                    window.location.hash = compressed;
+                }
+            }
+            
+            static loadFromURL() {
+                const hash = window.location.hash.slice(1);
+                if (hash) {
+                    return this.decompress(hash);
+                }
+                return null;
+            }
+            
+            static createShareableLink(portfolio) {
+                const compressed = this.compress(portfolio);
+                return compressed ? `${window.location.origin}${window.location.pathname}#${compressed}` : null;
+            }
+        }
 
         // Crypto symbols mapping
         const cryptoSymbols = {
@@ -392,6 +437,17 @@
 
         // Load portfolio from localStorage
         function loadPortfolio() {
+            // First try to load from URL
+            const urlData = URLStorage.loadFromURL();
+            if (urlData) {
+                portfolio = urlData;
+                // Also save to localStorage for performance
+                localStorage.setItem('cryptoPortfolio', JSON.stringify(portfolio));
+                console.log('Portfolio loaded from URL');
+                return;
+            }
+            
+            // Fall back to localStorage
             const saved = localStorage.getItem('cryptoPortfolio');
             if (saved) {
                 portfolio = JSON.parse(saved);
@@ -401,6 +457,8 @@
         // Save portfolio to localStorage
         function savePortfolio() {
             localStorage.setItem('cryptoPortfolio', JSON.stringify(portfolio));
+            // Optionally update URL (commented out to avoid constant URL updates)
+            // URLStorage.saveToURL(portfolio);
         }
 
         // Add transaction
@@ -698,6 +756,46 @@
                     }
                 };
                 reader.readAsText(file);
+            }
+        }
+
+        // Create permanent link
+        function createPermanentLink() {
+            const link = URLStorage.createShareableLink(portfolio);
+            if (link) {
+                // Create a modal to show the link
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(20, 20, 20, 0.95);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 16px;
+                    padding: 30px;
+                    max-width: 500px;
+                    width: 90%;
+                    backdrop-filter: blur(10px);
+                    z-index: 1000;
+                `;
+                
+                modal.innerHTML = `
+                    <h3 style="margin-bottom: 15px; color: #fff;">Permanent Portfolio Link</h3>
+                    <p style="margin-bottom: 15px; color: #888;">Bookmark this link to access your portfolio from any device. This link contains all your portfolio data and will survive browser cache clearing.</p>
+                    <input type="text" value="${link}" readonly style="width: 100%; margin-bottom: 15px; font-size: 0.875rem;" onclick="this.select()">
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="navigator.clipboard.writeText('${link}').then(() => alert('Link copied to clipboard!'))">Copy Link</button>
+                        <button onclick="this.parentElement.parentElement.remove()">Close</button>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Also save current state to URL
+                URLStorage.saveToURL(portfolio);
+            } else {
+                alert('Error creating permanent link. Please try again.');
             }
         }
     </script>
